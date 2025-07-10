@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Audit Review Results</title>
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      background-color: #f0f2f5;
+    }
+    .page-title {
+      font-weight: 700;
+      font-size: 2.5rem;
+      margin-bottom: 2rem;
+      text-align: center;
+      color: #343a40;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+    }
+    .summary-box {
+      background: #fff;
+      border-radius: 0.5rem;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      padding: 1rem 0.75rem;
+      text-align: center;
+      font-size: 0.95rem;
+    }
+    .summary-box h5 {
+      margin-bottom: 0.3rem;
+      font-weight: 600;
+    }
+    .summary-box p {
+      font-size: 1.3rem;
+      margin: 0;
+      font-weight: 700;
+    }
+    .table-container {
+      background: #fff;
+      border-radius: 0.5rem;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      padding: 1rem;
+      margin-top: 2rem;
+    }
+    .chart-wrapper {
+      background: #fff;
+      border-radius: 0.5rem;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      padding: 1rem 1.5rem 2rem;
+      margin-top: 2rem;
+      text-align: center;
+      max-width: 400px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    /* Status row colors */
+    .table-success { background-color: #d4edda !important; }
+    .table-danger  { background-color: #f8d7da !important; }
+    .table-warning { background-color: #fff3cd !important; }
+    .table-secondary { background-color: #e2e3e5 !important; }
+    .icon-cell { font-size: 1.2rem; }
+  </style>
+</head>
+<body>
+  <div class="container py-5">
+
+    <h1 class="page-title">Configuration Audit Review</h1>
+
+    <!-- Summary Row -->
+    <div class="row g-3">
+      <div class="col-md-2 offset-md-1">
+        <div class="summary-box">
+          <h5>Total Rules</h5>
+          <p>{{ total }}</p>
+        </div>
+      </div>
+      <div class="col-md-2">
+        <div class="summary-box text-success">
+          <h5>Passed</h5>
+          <p>{{ count_pass }}</p>
+        </div>
+      </div>
+      <div class="col-md-2">
+        <div class="summary-box text-danger">
+          <h5>Failed</h5>
+          <p>{{ count_fail }}</p>
+        </div>
+      </div>
+      <div class="col-md-2">
+        <div class="summary-box text-warning">
+          <h5>Missing</h5>
+          <p>{{ count_missing }}</p>
+        </div>
+      </div>
+      <div class="col-md-2">
+        <div class="summary-box text-secondary">
+          <h5>Unknown</h5>
+          <p>{{ count_unknown }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Audit Table -->
+    <div class="table-container">
+      <table class="table">
+        <thead class="table-dark">
+          <tr>
+            <th>Status</th>
+            <th>Rule / Configuration</th>
+            <th>Suggestion</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for rule, status, suggestion in results %}
+          <tr class="
+            {% if status == 'Pass' %}table-success
+            {% elif status == 'Fail' %}table-danger
+            {% elif status == 'Missing' %}table-warning
+            {% elif status == 'Unknown' or status == 'Unrecognized' %}table-secondary
+            {% endif %}
+          ">
+            <td class="icon-cell text-center">
+              {% if status == 'Pass' %}
+                ✅
+              {% elif status == 'Fail' %}
+                ❌
+              {% elif status == 'Missing' %}
+                ⚠️
+              {% else %}
+                ⚙️
+              {% endif %}
+            </td>
+            <td>{{ rule }}</td>
+            <td>
+              {% if status == 'Pass' %}
+                —
+              {% elif status == 'Missing' %}
+                No configuration provided.
+              {% else %}
+                {{ suggestion }}
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pie Chart -->
+    <div class="chart-wrapper">
+      <h5 class="mb-4">Result Distribution</h5>
+      <canvas id="resultPieChart" width="400" height="400"></canvas>
+    </div>
+
+  </div>
+
+  <script>
+    const ctx = document.getElementById('resultPieChart').getContext('2d');
+    const data = {
+      labels: ['Pass','Fail','Missing','Unknown'],
+      datasets: [{
+        data: [
+          {{ chart_data.Pass }},
+          {{ chart_data.Fail }},
+          {{ chart_data.Missing }},
+          {{ chart_data.Unknown }}
+        ],
+        backgroundColor: [
+          'rgba(40,167,69,0.8)',
+          'rgba(220,53,69,0.8)',
+          'rgba(255,193,7,0.8)',
+          'rgba(108,117,125,0.8)'
+        ],
+        borderColor: [
+          'rgba(40,167,69,1)',
+          'rgba(220,53,69,1)',
+          'rgba(255,193,7,1)',
+          'rgba(108,117,125,1)'
+        ],
+        borderWidth: 2,
+        hoverOffset: 20
+      }]
+    };
+
+    new Chart(ctx, {
+      type: 'pie',
+      data,
+      options: {
+        responsive: true,
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { boxWidth: 12, padding: 16 }
+          },
+          tooltip: {
+            callbacks: {
+              label: ctx => {
+                const label = ctx.label;
+                const value = ctx.parsed;
+                const total = ctx.chart._metasets[0].total;
+                const pct = ((value/total)*100).toFixed(1) + '%';
+                return `${label}: ${value} (${pct})`;
+              }
+            }
+          }
+        }
+      }
+    });
+  </script>
+</body>
+</html>
